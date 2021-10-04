@@ -10,4 +10,5 @@ def collate_fn(dataset_items: List[dict]):
     """
 
     result_batch = {}
+    # TODO: your code here
     raise NotImplementedError

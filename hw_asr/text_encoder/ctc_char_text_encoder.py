@@ -18,6 +18,7 @@ class CTCCharTextEncoder(CharTextEncoder):
         self.char2ind = {v: k for k, v in self.ind2char.items()}
 
     def ctc_decode(self, inds: List[int]) -> str:
+        # TODO: your code here
         raise NotImplementedError()
 
     def ctc_beam_search(self, probs: torch.tensor, beam_size: int = 100) -> List[Tuple[str, float]]:
@@ -28,5 +29,6 @@ class CTCCharTextEncoder(CharTextEncoder):
         char_length, voc_size = probs.shape
         assert voc_size == len(self.ind2char)
         hypos = []
+        # TODO: your code here
         raise NotImplementedError
         return sorted(hypos, key=lambda x: x[1], reverse=True)

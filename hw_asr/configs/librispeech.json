@@ -82,7 +82,6 @@
       "max_lr": 5e-2,
       "pct_start": 0.01,
       "div_factor": 100000
-
     }
   },
   "trainer": {

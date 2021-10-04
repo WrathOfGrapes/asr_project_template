@@ -146,7 +146,7 @@ class BaseTrainer:
             "config": self.config,
         }
         filename = str(self.checkpoint_dir / "checkpoint-epoch{}.pth".format(epoch))
-        if not(only_best and save_best):
+        if not (only_best and save_best):
             torch.save(state, filename)
             self.logger.info("Saving checkpoint: {} ...".format(filename))
         if save_best:
