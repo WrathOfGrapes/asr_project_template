@@ -1,0 +1,110 @@
+{
+  "name": "quartznet-cv",
+  "n_gpu": 1,
+  "preprocessing": {
+    "sr": 16000,
+    "spectrogram": {
+      "type": "MelSpectrogram",
+      "args": {
+      }
+    }
+  },
+  "augmentations": {
+    "wave": [],
+    "spectrogram": []
+  },
+  "arch": {
+    "type": "QuartzNet",
+    "args": {
+      "n_feats": 128
+    }
+  },
+  "data": {
+    "train": {
+      "batch_sampler": {
+        "type": "GroupLengthBatchSampler",
+        "args": {
+          "batch_size": 250
+        }
+      },
+      "num_workers": 10,
+      "datasets": [
+        {
+          "type": "CommonVoiceDataset",
+          "args": {
+            "part": "train",
+            "max_audio_length": 10.0,
+            "max_text_length": 100,
+            "data_dir": "common_voice_en"
+          }
+        }
+      ]
+    },
+    "val": {
+      "batch_sampler": {
+        "type": "GroupLengthBatchSampler",
+        "args": {
+          "batch_size": 200
+        }
+      },
+      "num_workers": 1,
+      "datasets": [
+        {
+          "type": "CommonVoiceDataset",
+          "args": {
+            "part": "validation",
+            "max_audio_length": 10.0,
+            "max_text_length": 100,
+            "data_dir": "common_voice_en"
+          }
+        }
+      ]
+    }
+  },
+  "optimizer": {
+    "type": "SGD",
+    "args": {
+      "lr": 5e-4,
+      "momentum": 0.9
+    }
+  },
+  "loss": {
+    "type": "CTCLoss",
+    "args": {}
+  },
+  "metrics": [
+    {
+      "type": "ArgmaxWERMetric",
+      "args": {
+        "name": "WER (argmax)"
+      }
+    },
+    {
+      "type": "ArgmaxCERMetric",
+      "args": {
+        "name": "CER (argmax)"
+      }
+    }
+  ],
+  "lr_scheduler": {
+    "type": "OneCycleLR",
+    "args": {
+      "steps_per_epoch": 400,
+      "epochs": 200,
+      "anneal_strategy": "cos",
+      "max_lr": 1e-1,
+      "pct_start": 0.01,
+      "div_factor": 100000
+    }
+  },
+  "trainer": {
+    "epochs": 355,
+    "save_dir": "./saved",
+    "save_period": 20,
+    "verbosity": 2,
+    "monitor": "min val_loss",
+    "tensorboard": true,
+    "len_epoch": 400,
+    "grad_norm_clip": 10
+  }
+}

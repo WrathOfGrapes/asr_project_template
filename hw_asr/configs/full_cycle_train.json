@@ -1,0 +1,97 @@
+{
+  "name": "deepspeech_2",
+  "n_gpu": 1,
+  "preprocessing": {
+    "sr": 16000,
+    "spectrogram": {
+      "type": "MelSpectrogram",
+      "args": {
+      }
+    }
+  },
+  "augmentations": {
+    "wave": [],
+    "spectrogram": []
+  },
+  "arch": {
+    "type": "QuartzNet",
+    "args": {
+      "n_feats": 128
+    }
+  },
+  "data": {
+    "train": {
+      "batch_size": 60,
+      "num_workers": 1,
+      "datasets": [
+        {
+          "type": "LibrispeechDataset",
+          "args": {
+            "part": "train-clean-360",
+            "max_audio_length": 20.0,
+            "limit": 100
+          }
+        }
+      ]
+    },
+    "val": {
+      "datasets": [
+        {
+          "type": "LibrispeechDataset",
+          "batch_size": 150,
+          "args": {
+            "part": "dev-clean",
+            "max_audio_length": 20.0
+          }
+        }
+      ]
+    }
+  },
+  "optimizer": {
+    "type": "AdamW",
+    "args": {
+      "lr": 5e-4,
+      "weight_decay": 0,
+      "amsgrad": true
+    }
+  },
+  "loss": {
+    "type": "CTCLoss",
+    "args": {}
+  },
+  "metrics": [
+    {
+      "type": "ArgmaxWERMetric",
+      "args": {
+        "name": "WER (argmax)"
+      }
+    },
+    {
+      "type": "ArgmaxCERMetric",
+      "args": {
+        "name": "CER (argmax)"
+      }
+    }
+  ],
+  "lr_scheduler": {
+    "type": "OneCycleLR",
+    "args": {
+      "steps_per_epoch": 100,
+      "epochs": 10,
+      "anneal_strategy": "cos",
+      "max_lr": 5e-4,
+      "pct_start": 0.1
+    }
+  },
+  "trainer": {
+    "epochs": 3,
+    "save_dir": "saved/",
+    "save_period": 1,
+    "verbosity": 2,
+    "monitor": "min val_loss",
+    "early_stop": 10000,
+    "tensorboard": true,
+    "len_epoch": 3,
+    "grad_norm_clip": 10
+  }
+}
