@@ -1,5 +1,5 @@
 from .tensorboard import TensorboardWriter
-from .wandb import WanDBdWriter
+from .wandb import WanDBWriter
 
 
 def get_visualizer(config, logger, type):
@@ -7,7 +7,7 @@ def get_visualizer(config, logger, type):
         return TensorboardWriter(config.log_dir, logger, True)
 
     if type == 'wandb':
-        return WanDBdWriter(config, logger)
+        return WanDBWriter(config, logger)
 
     return None
 

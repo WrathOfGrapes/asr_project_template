@@ -1,7 +1,7 @@
 from datetime import datetime
 
 
-class WanDBdWriter:
+class WanDBWriter:
     def __init__(self, config, logger):
         self.writer = None
         self.selected_module = ""
