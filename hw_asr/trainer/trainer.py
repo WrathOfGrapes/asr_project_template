@@ -86,8 +86,10 @@ class Trainer(BaseTrainer):
         batch["log_probs_length"] = self.model.transform_input_lengths(
             batch["spectrogram_length"]
         )
+
         loss = self.criterion(**batch)
         loss.backward()
+
         self._clip_grad_norm()
         self.optimizer.step()
 

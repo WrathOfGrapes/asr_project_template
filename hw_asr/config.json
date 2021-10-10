@@ -91,7 +91,8 @@
     "verbosity": 2,
     "monitor": "min val_loss",
     "early_stop": 100,
-    "tensorboard": true,
+    "visualize": "wandb",
+    "wandb_project": "asr_project",
     "len_epoch": 100,
     "grad_norm_clip": 10
   }
