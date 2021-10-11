@@ -1,4 +1,5 @@
 from datetime import datetime
+import numpy as np
 
 
 class WanDBWriter:
@@ -66,7 +67,13 @@ class WanDBWriter:
 
     def add_histogram(self, scalar_name, hist, bins=None):
         hist = hist.detach().cpu().numpy()
-        hist = self.wandb.Histogram(hist, num_bins=bins)
+        np_hist = np.histogram(hist, bins=bins)
+        if np_hist[0].shape[0] > 512:
+            np_hist = np.histogram(hist, bins=512)
+
+        hist = self.wandb.Histogram(
+            np_histogram=np_hist
+        )
 
         self.wandb.log({
             self.scalar_name(scalar_name): hist
