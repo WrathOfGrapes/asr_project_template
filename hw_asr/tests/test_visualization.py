@@ -23,15 +23,6 @@ class TestVisualization(unittest.TestCase):
             tensorboard = TensorboardWriter(log_dir, logger, True)
             wandb = WanDBWriter(config, logger)
 
-            test_methods = [
-                "add_scalar",
-                "add_scalars",
-                "add_image",
-                "add_audio",
-                "add_text",
-                "add_histogram"
-            ]
-
             audio_path = Path(__file__).parent.parent.parent / "test_data" / "audio" / "84-121550-0000.flac"
             audio, sr = torchaudio.load(audio_path)
 
@@ -52,6 +43,15 @@ class TestVisualization(unittest.TestCase):
                 audio,
                 "test",
                 hist
+            ]
+
+            test_methods = [
+                "add_scalar",
+                "add_scalars",
+                "add_image",
+                "add_audio",
+                "add_text",
+                "add_histogram"
             ]
 
             for method, value in zip(test_methods, test_data):
