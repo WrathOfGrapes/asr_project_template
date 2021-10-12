@@ -55,9 +55,10 @@ class WanDBWriter:
             self.scalar_name(scalar_name): self.wandb.Image(image)
         }, step=self.step)
 
-    def add_audio(self, scalar_name, audio):
+    def add_audio(self, scalar_name, audio, sample_rate=None):
+        audio = audio.detach().cpu().numpy().T
         self.wandb.log({
-            self.scalar_name(scalar_name): self.wandb.Audio(audio)
+            self.scalar_name(scalar_name): self.wandb.Audio(audio, sample_rate=sample_rate)
         }, step=self.step)
 
     def add_text(self, scalar_name, text):
@@ -78,6 +79,9 @@ class WanDBWriter:
         self.wandb.log({
             self.scalar_name(scalar_name): hist
         }, step=self.step)
+
+    def add_images(self, scalar_name, images):
+        raise NotImplementedError()
 
     def add_pr_curve(self, scalar_name, scalar):
         raise NotImplementedError()
