@@ -13,7 +13,7 @@ import PIL
 
 
 class TestVisualization(unittest.TestCase):
-    def test_visualiaers(self):
+    def test_visualizers(self):
         log_dir = str(Path(__file__).parent / "logs_dir")
 
         try:
