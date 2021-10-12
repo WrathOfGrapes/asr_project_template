@@ -34,7 +34,7 @@ class TestVisualization(unittest.TestCase):
 
             audio_path = Path(__file__).parent.parent.parent / "test_data" / "audio" / "84-121550-0000.flac"
             audio, sr = torchaudio.load(audio_path)
-            print(audio.shape)
+
             wave2spec = config.init_obj(
                 config["preprocessing"]["spectrogram"],
                 torchaudio.transforms,
@@ -42,7 +42,6 @@ class TestVisualization(unittest.TestCase):
 
             wave = wave2spec(audio)
             image = ToTensor()(PIL.Image.open(plot_spectrogram_to_buf(wave.squeeze(0).log())))
-            print(image.shape)
 
             hist = torch.from_numpy(np.asarray([1, 2, 3, 4]))
 
