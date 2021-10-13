@@ -46,7 +46,12 @@ def main(config, out_file):
     with torch.no_grad():
         for batch_num, batch in enumerate(tqdm(dataloaders["test"])):
             batch = Trainer.move_batch_to_device(batch, device)
-            batch["log_probs"] = model(**batch)
+            output = model(**batch)
+            if type(output) is dict:
+                batch.update(output)
+            else:
+                batch["logits"] = output
+            batch["log_probs"] = torch.log_softmax(batch["logits"], dim=-1)
             batch["log_probs_length"] = model.transform_input_lengths(
                 batch["spectrogram_length"]
             )
