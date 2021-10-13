@@ -1,20 +1,18 @@
 import argparse
 import json
+import os
 from pathlib import Path
 
 import torch
 from tqdm import tqdm
 
+import hw_asr.model as module_model
 from hw_asr.datasets.utils import get_dataloaders
 from hw_asr.text_encoder.ctc_char_text_encoder import CTCCharTextEncoder
-import hw_asr.model as module_model
-import hw_asr.loss as module_loss
-import hw_asr.metric as module_metric
 from hw_asr.trainer import Trainer
 from hw_asr.utils import ROOT_PATH
 from hw_asr.utils.parse_config import ConfigParser
 
-DEFAULT_TEST_CONFIG_PATH = ROOT_PATH / "default_test_config.json"
 DEFAULT_CHECKPOINT_PATH = ROOT_PATH / "default_test_model" / "checkpoint.pth"
 
 
@@ -31,10 +29,6 @@ def main(config, out_file):
     model = config.init_obj(config["arch"], module_model, n_class=len(text_encoder))
     logger.info(model)
 
-    # get function handles of loss and metrics
-    loss_fn = getattr(module_loss, config["loss"])
-    metric_fns = [getattr(module_metric, met) for met in config["metrics"]]
-
     logger.info("Loading checkpoint: {} ...".format(config.resume))
     checkpoint = torch.load(config.resume)
     state_dict = checkpoint["state_dict"]
@@ -50,24 +44,30 @@ def main(config, out_file):
     results = []
 
     with torch.no_grad():
-        for i, batch in enumerate(tqdm(dataloaders["test"])):
+        for batch_num, batch in enumerate(tqdm(dataloaders["test"])):
             batch = Trainer.move_batch_to_device(batch, device)
-            batch["log_probs"] = model(**batch)
+            output = model(**batch)
+            if type(output) is dict:
+                batch.update(output)
+            else:
+                batch["logits"] = output
+            batch["log_probs"] = torch.log_softmax(batch["logits"], dim=-1)
             batch["log_probs_length"] = model.transform_input_lengths(
                 batch["spectrogram_length"]
             )
             batch["probs"] = batch["log_probs"].exp().cpu()
             batch["argmax"] = batch["probs"].argmax(-1)
             for i in range(len(batch["text"])):
-                results.append({
-                    "ground_trurh": batch["text"][i],
-                    "pred_text_argmax": text_encoder.ctc_decode(batch["argmax"][i]),
-                    "pred_text_beam_search": text_encoder.ctc_beam_search(
-                        batch["probs"], beam_size=100
-                    )[:10],
-
-                })
-    with Path(out_file).open('w') as f:
+                results.append(
+                    {
+                        "ground_trurh": batch["text"][i],
+                        "pred_text_argmax": text_encoder.ctc_decode(batch["argmax"][i]),
+                        "pred_text_beam_search": text_encoder.ctc_beam_search(
+                            batch["probs"], beam_size=100
+                        )[:10],
+                    }
+                )
+    with Path(out_file).open("w") as f:
         json.dump(results, f, indent=2)
 
 
@@ -76,7 +76,7 @@ if __name__ == "__main__":
     args.add_argument(
         "-c",
         "--config",
-        default=str(DEFAULT_TEST_CONFIG_PATH.absolute().resolve()),
+        default=None,
         type=str,
         help="config file path (default: None)",
     )
@@ -97,7 +97,7 @@ if __name__ == "__main__":
     args.add_argument(
         "-o",
         "--output",
-        default='output.json',
+        default="output.json",
         type=str,
         help="File to write results (.json)",
     )
@@ -105,7 +105,6 @@ if __name__ == "__main__":
         "-t",
         "--test-data-folder",
         default=None,
-        required=True,
         type=str,
         help="Path to dataset",
     )
@@ -121,25 +120,50 @@ if __name__ == "__main__":
         "--jobs",
         default=1,
         type=int,
-        help="Number of workers for test dataloader"
+        help="Number of workers for test dataloader",
     )
 
-    test_data_folder = Path(args.test_data_folder)
+    args = args.parse_args()
 
-    config = ConfigParser.from_args(DEFAULT_TEST_CONFIG_PATH)
-    config.config["data"] = {
-        "test": {
-            "batch_size": args.batch_size,
-            "num_workers": args.jobs,
-            "datasets": [
-                {
-                    "type": "CustomDirAudioDataset",
-                    "args": {
-                        "audio_dir": test_data_folder / "audio",
-                        "transcription_dir": test_data_folder / "transcriptions",
+    # set GPUs
+    if args.device is not None:
+        os.environ["CUDA_VISIBLE_DEVICES"] = args.device
+
+    # first, we need to obtain config with model parameters
+    # we assume it is located with checkpoint in the same folder
+    model_config = Path(args.resume).parent / "config.json"
+    with model_config.open() as f:
+        config = ConfigParser(json.load(f), resume=args.resume)
+
+    # update with addition configs from `args.config` if provided
+    if args.config is not None:
+        with Path(args.config).open() as f:
+            config.config.upadte(json.load(f))
+
+    # if `--test-data-folder` was provided, set it as a default test set
+    if args.test_data_folder is not None:
+        test_data_folder = Path(args.test_data_folder).absolute().resolve()
+        assert test_data_folder.exists()
+        config.config["data"] = {
+            "test": {
+                "batch_size": args.batch_size,
+                "num_workers": args.jobs,
+                "datasets": [
+                    {
+                        "type": "CustomDirAudioDataset",
+                        "args": {
+                            "audio_dir": str(test_data_folder / "audio"),
+                            "transcription_dir": str(
+                                test_data_folder / "transcriptions"
+                            ),
+                        },
                     }
-                }
-            ]
+                ],
+            }
         }
-    }
+
+    assert config.config.get("data", {}).get("test", None) is not None
+    config["data"]["test"]["batch_size"] = args.batch_size
+    config["data"]["test"]["n_jobs"] = args.n_jobs
+
     main(config, args.output)

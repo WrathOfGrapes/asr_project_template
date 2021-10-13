@@ -1,7 +1,9 @@
 from abc import abstractmethod
+from typing import Union
 
 import numpy as np
 import torch.nn as nn
+from torch import Tensor
 
 
 class BaseModel(nn.Module):
@@ -13,9 +15,10 @@ class BaseModel(nn.Module):
         super().__init__()
 
     @abstractmethod
-    def forward(self, *inputs):
+    def forward(self, *args, **kwargs) -> Union[Tensor, dict]:
         """
-        Forward pass logic
+        Forward pass logic.
+        Can return a torch.Tensor (it will be interpreted as logits) or a dict.
 
         :return: Model output
         """

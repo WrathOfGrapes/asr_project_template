@@ -11,7 +11,7 @@ from tqdm import tqdm
 
 from hw_asr.base import BaseTrainer
 from hw_asr.logger.utils import plot_spectrogram_to_buf
-from hw_asr.metric.utils import calc_cer
+from hw_asr.metric.utils import calc_cer, calc_wer
 from hw_asr.utils import inf_loop, MetricTracker
 
 
@@ -33,7 +33,7 @@ class Trainer(BaseTrainer):
             valid_data_loader=None,
             lr_scheduler=None,
             len_epoch=None,
-            skip_oom=True
+            skip_oom=True,
     ):
         super().__init__(model, criterion, metrics, optimizer, config, device)
         self.skip_oom = skip_oom
@@ -64,10 +64,7 @@ class Trainer(BaseTrainer):
         """
         Move all necessary tensors to the HPU
         """
-        for tensor_for_gpu in [
-            "spectrogram",
-            "text_encoded"
-        ]:
+        for tensor_for_gpu in ["spectrogram", "text_encoded"]:
             batch[tensor_for_gpu] = batch[tensor_for_gpu].to(device)
         return batch
 
@@ -76,44 +73,6 @@ class Trainer(BaseTrainer):
             clip_grad_norm_(
                 self.model.parameters(), self.config["trainer"]["grad_norm_clip"]
             )
-
-    def _train_iteration(self, batch: dict, epoch: int, batch_num: int):
-        batch = self.move_batch_to_device(batch, self.device)
-        self.optimizer.zero_grad()
-
-        batch["logits"] = self.model(**batch)
-        batch["log_probs"] = F.log_softmax(batch["logits"], dim=-1)
-        batch["log_probs_length"] = self.model.transform_input_lengths(
-            batch["spectrogram_length"]
-        )
-
-        loss = self.criterion(**batch)
-        loss.backward()
-
-        self._clip_grad_norm()
-        self.optimizer.step()
-
-        if self.lr_scheduler is not None:
-            self.lr_scheduler.step()
-
-        self.writer.set_step((epoch - 1) * self.len_epoch + batch_num)
-        self.train_metrics.update("loss", loss.item())
-        for met in self.metrics:
-            self.train_metrics.update(met.name, met(**batch))
-        self.train_metrics.update("grad norm", self.get_grad_norm())
-
-        if batch_num % self.log_step == 0:
-            self.logger.debug(
-                "Train Epoch: {} {} Loss: {:.6f}".format(
-                    epoch, self._progress(batch_num), loss.item()
-                )
-            )
-            self.writer.add_scalar(
-                "learning rate", self.lr_scheduler.get_last_lr()[0]
-            )
-            self._log_predictions(part="train", **batch)
-            self._log_spectrogram(batch["spectrogram"])
-            self._log_scalars(self.train_metrics)
 
     def _train_epoch(self, epoch):
         """
@@ -129,9 +88,13 @@ class Trainer(BaseTrainer):
                 tqdm(self.data_loader, desc="train", total=self.len_epoch)
         ):
             try:
-                self._train_iteration(batch, epoch, batch_idx)
+                batch = self.process_batch(
+                    batch,
+                    is_train=True,
+                    metrics=self.train_metrics,
+                )
             except RuntimeError as e:
-                if 'out of memory' in str(e) and self.skip_oom:
+                if "out of memory" in str(e) and self.skip_oom:
                     self.logger.warning("OOM on batch. Skipping batch.")
                     for p in self.model.parameters():
                         if p.grad is not None:
@@ -140,6 +103,20 @@ class Trainer(BaseTrainer):
                     continue
                 else:
                     raise e
+            self.train_metrics.update("grad norm", self.get_grad_norm())
+            if batch_idx % self.log_step == 0:
+                self.writer.set_step((epoch - 1) * self.len_epoch + batch_idx)
+                self.logger.debug(
+                    "Train Epoch: {} {} Loss: {:.6f}".format(
+                        epoch, self._progress(batch_idx), batch["loss"].item()
+                    )
+                )
+                self.writer.add_scalar(
+                    "learning rate", self.lr_scheduler.get_last_lr()[0]
+                )
+                self._log_predictions(part="train", **batch)
+                self._log_spectrogram(batch["spectrogram"])
+                self._log_scalars(self.train_metrics)
             if batch_idx >= self.len_epoch:
                 break
         log = self.train_metrics.result()
@@ -149,6 +126,33 @@ class Trainer(BaseTrainer):
             log.update(**{"val_" + k: v for k, v in val_log.items()})
 
         return log
+
+    def process_batch(self, batch, is_train: bool, metrics: MetricTracker):
+        batch = self.move_batch_to_device(batch, self.device)
+        if is_train:
+            self.optimizer.zero_grad()
+        outputs = self.model(**batch)
+        if type(outputs) is dict:
+            batch.update(outputs)
+        else:
+            batch["logits"] = outputs
+
+        batch["log_probs"] = F.log_softmax(batch["logits"], dim=-1)
+        batch["log_probs_length"] = self.model.transform_input_lengths(
+            batch["spectrogram_length"]
+        )
+        batch["loss"] = self.criterion(**batch)
+        if is_train:
+            batch["loss"].backward()
+            self._clip_grad_norm()
+            self.optimizer.step()
+            if self.lr_scheduler is not None:
+                self.lr_scheduler.step()
+
+        metrics.update("loss", batch["loss"].item())
+        for met in self.metrics:
+            metrics.update(met.name, met(**batch))
+        return batch
 
     def _valid_epoch(self, epoch):
         """
@@ -161,19 +165,15 @@ class Trainer(BaseTrainer):
         self.valid_metrics.reset()
         with torch.no_grad():
             for batch_idx, batch in tqdm(
-                    enumerate(self.valid_data_loader), desc="validation",
-                    total=len(self.valid_data_loader)
+                    enumerate(self.valid_data_loader),
+                    desc="validation",
+                    total=len(self.valid_data_loader),
             ):
-                batch = self.move_batch_to_device(batch, self.device)
-                batch["log_probs"] = self.model(**batch)
-                batch["log_probs_length"] = self.model.transform_input_lengths(
-                    batch["spectrogram_length"]
+                batch = self.process_batch(
+                    batch,
+                    is_train=False,
+                    metrics=self.valid_metrics,
                 )
-                loss = self.criterion(**batch)
-
-                self.valid_metrics.update("loss", loss.item(), n=len(batch["text"]))
-                for met in self.metrics:
-                    self.valid_metrics.update(met.name, met(**batch))
             self.writer.set_step(epoch * self.len_epoch, "valid")
             self._log_scalars(self.valid_metrics)
             self._log_predictions(part="val", **batch)
@@ -217,13 +217,17 @@ class Trainer(BaseTrainer):
         to_log_pred = []
         to_log_pred_raw = []
         for pred, target, raw_pred in tuples[:examples_to_log]:
-            wer = jiwer.wer(target, pred) * 100
+            wer = calc_wer(target, pred) * 100
             cer = calc_cer(target, pred) * 100
             to_log_pred.append(
-                f"true: '{target}' | pred: '{pred}' " f"| wer: {wer:.2f} | cer: {cer:.2f}")
+                f"true: '{target}' | pred: '{pred}' "
+                f"| wer: {wer:.2f} | cer: {cer:.2f}"
+            )
             to_log_pred_raw.append(f"true: '{target}' | pred: '{raw_pred}'\n")
-        self.writer.add_text(f"predictions", '< < < < > > > >'.join(to_log_pred))
-        self.writer.add_text(f"predictions_raw", '< < < < > > > >'.join(to_log_pred_raw))
+        self.writer.add_text(f"predictions", "< < < < > > > >".join(to_log_pred))
+        self.writer.add_text(
+            f"predictions_raw", "< < < < > > > >".join(to_log_pred_raw)
+        )
 
     def _log_spectrogram(self, spectrogram_batch):
         spectrogram = random.choice(spectrogram_batch)
