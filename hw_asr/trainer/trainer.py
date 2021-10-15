@@ -205,13 +205,13 @@ class Trainer(BaseTrainer):
         # TODO: implement logging of beam search results
         if self.writer is None:
             return
-        predictions = log_probs.cpu().argmax(-1)
-        pred_texts = [self.text_encoder.ctc_decode(p) for p in predictions]
-        argmax_pred_texts = [
+        argmax_predictions = log_probs.cpu().argmax(-1)
+        argmax_predictions = [
             self.text_encoder.decode(p)[: int(l)]
-            for p, l in zip(predictions, log_probs_length)
+            for p, l in zip(argmax_predictions, log_probs_length)
         ]
-        tuples = list(zip(pred_texts, text, argmax_pred_texts))
+        predicted_texts = [self.text_encoder.ctc_decode(p) for p in argmax_predictions]
+        tuples = list(zip(predicted_texts, text, argmax_predictions))
         shuffle(tuples)
         to_log_pred = []
         to_log_pred_raw = []
