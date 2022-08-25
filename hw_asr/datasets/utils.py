@@ -49,6 +49,8 @@ def get_dataloaders(configs: ConfigParser, text_encoder: BaseTextEncoder):
         else:
             raise Exception()
 
+        assert bs <= len(dataset)  # Fun fact. An hour of debugging was wasted to write this line
+
         # create dataloader
         dataloader = DataLoader(
             dataset, batch_size=bs, collate_fn=collate_fn,

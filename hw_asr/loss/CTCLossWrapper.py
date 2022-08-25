@@ -4,11 +4,13 @@ from torch.nn import CTCLoss
 
 
 class CTCLossWrapper(CTCLoss):
-    def forward(self, *args, **kwargs) -> Tensor:
-        log_probs = torch.transpose(kwargs["log_probs"], 0, 1)
-        input_lengths = kwargs["log_probs_length"]
-        targets = kwargs["text_encoded"]
-        target_lengths = kwargs["text_encoded_length"]
+    def forward(self, log_probs, log_probs_length, text_encoded, text_encoded_length,
+                **batch) -> Tensor:
+        log_probs_t = torch.transpose(log_probs, 0, 1)
 
-        return super().forward(log_probs=log_probs, targets=targets,
-                               input_lengths=input_lengths, target_lengths=target_lengths)
+        return super().forward(
+            log_probs=log_probs_t,
+            targets=text_encoded,
+            input_lengths=log_probs_length,
+            target_lengths=text_encoded_length,
+        )

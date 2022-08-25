@@ -62,7 +62,7 @@ class BaseTrainer:
 
         :param epoch: Current epoch number
         """
-        raise NotImplementedError
+        raise NotImplementedError()
 
     def train(self):
         try:
@@ -89,18 +89,19 @@ class BaseTrainer:
             for key, value in log.items():
                 self.logger.info("    {:15s}: {}".format(str(key), value))
 
-            # evaluate model performance according to configured metric, save best checkpoint as model_best
+            # evaluate model performance according to configured metric,
+            # save best checkpoint as model_best
             best = False
             if self.mnt_mode != "off":
                 try:
-                    # check whether model performance improved or not, according to specified metric(mnt_metric)
-                    improved = (
-                                       self.mnt_mode == "min" and log[
-                                   self.mnt_metric] <= self.mnt_best
-                               ) or (
-                                       self.mnt_mode == "max" and log[
-                                   self.mnt_metric] >= self.mnt_best
-                               )
+                    # check whether model performance improved or not,
+                    # according to specified metric(mnt_metric)
+                    if self.mnt_mode == "min":
+                        improved = log[self.mnt_metric] <= self.mnt_best
+                    elif self.mnt_mode == "max":
+                        improved = log[self.mnt_metric] >= self.mnt_best
+                    else:
+                        improved = False
                 except KeyError:
                     self.logger.warning(
                         "Warning: Metric '{}' is not found. "
@@ -133,7 +134,6 @@ class BaseTrainer:
         Saving checkpoints
 
         :param epoch: current epoch number
-        :param log: logging information of the epoch
         :param save_best: if True, rename the saved checkpoint to 'model_best.pth'
         """
         arch = type(self.model).__name__
@@ -169,8 +169,8 @@ class BaseTrainer:
         # load architecture params from checkpoint.
         if checkpoint["config"]["arch"] != self.config["arch"]:
             self.logger.warning(
-                "Warning: Architecture configuration given in config file is different from that of "
-                "checkpoint. This may yield an exception while state_dict is being loaded."
+                "Warning: Architecture configuration given in config file is different from that "
+                "of checkpoint. This may yield an exception while state_dict is being loaded."
             )
         self.model.load_state_dict(checkpoint["state_dict"])
 

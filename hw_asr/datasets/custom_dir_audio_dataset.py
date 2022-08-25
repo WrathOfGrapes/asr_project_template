@@ -2,8 +2,6 @@ import logging
 from pathlib import Path
 
 from hw_asr.datasets.custom_audio_dataset import CustomAudioDataset
-from hw_asr.text_encoder.ctc_char_text_encoder import CTCCharTextEncoder
-from hw_asr.utils.parse_config import ConfigParser
 
 logger = logging.getLogger(__name__)
 
@@ -23,13 +21,3 @@ class CustomDirAudioDataset(CustomAudioDataset):
             if len(entry) > 0:
                 data.append(entry)
         super().__init__(data, *args, **kwargs)
-
-
-if __name__ == "__main__":
-    text_encoder = CTCCharTextEncoder.get_simple_alphabet()
-    config_parser = ConfigParser.get_default_configs()
-
-    ds = CustomDirAudioDataset("data/datasets/custom/audio",
-                               text_encoder=text_encoder, config_parser=config_parser)
-    item = ds[0]
-    print(item)

@@ -1,3 +1,4 @@
+import importlib
 import json
 import logging
 import os
@@ -13,12 +14,15 @@ from hw_asr.utils import read_json, write_json, ROOT_PATH
 class ConfigParser:
     def __init__(self, config, resume=None, modification=None, run_id=None):
         """
-        class to parse configuration json file. Handles hyperparameters for training, initializations of modules, checkpoint saving
-        and logging module.
-        :param config: Dict containing configurations, hyperparameters for training. contents of `config.json` file for example.
+        class to parse configuration json file. Handles hyperparameters for training,
+        initializations of modules, checkpoint saving and logging module.
+        :param config: Dict containing configurations, hyperparameters for training.
+                       contents of `config.json` file for example.
         :param resume: String, path to the checkpoint being loaded.
-        :param modification: Dict keychain:value, specifying position values to be replaced from config dict.
-        :param run_id: Unique Identifier for training processes. Used to save checkpoints and training log. Timestamp is being used as default
+        :param modification: Dict {keychain: value}, specifying position values to be replaced
+                             from config dict.
+        :param run_id: Unique Identifier for training processes.
+                       Used to save checkpoints and training log. Timestamp is being used as default
         """
         # load config file and apply modification
         self._config = _update_config(config, modification)
@@ -61,7 +65,8 @@ class ConfigParser:
             resume = Path(args.resume)
             cfg_fname = resume.parent / "config.json"
         else:
-            msg_no_cfg = "Configuration file need to be specified. Add '-c config.json', for example."
+            msg_no_cfg = "Configuration file need to be specified. " \
+                         "Add '-c config.json', for example."
             assert args.config is not None, msg_no_cfg
             resume = None
             cfg_fname = Path(args.config)
@@ -77,7 +82,8 @@ class ConfigParser:
         }
         return cls(config, resume, modification)
 
-    def init_obj(self, obj_dict, module, *args, **kwargs):
+    @staticmethod
+    def init_obj(obj_dict, default_module, *args, **kwargs):
         """
         Finds a function handle with the name given as 'type' in config, and returns the
         instance initialized with corresponding arguments given.
@@ -86,13 +92,16 @@ class ConfigParser:
         is equivalent to
         `object = module.name(a, b=1)`
         """
+        if "module" in obj_dict:
+            default_module = importlib.import_module(obj_dict["module"])
+
         module_name = obj_dict["type"]
         module_args = dict(obj_dict["args"])
         assert all(
             [k not in module_args for k in kwargs]
         ), "Overwriting kwargs given in config file is not allowed"
         module_args.update(kwargs)
-        return getattr(module, module_name)(*args, **module_args)
+        return getattr(default_module, module_name)(*args, **module_args)
 
     def init_ftn(self, name, module, *args, **kwargs):
         """
@@ -139,7 +148,13 @@ class ConfigParser:
 
     @classmethod
     def get_default_configs(cls):
-        config_path = ROOT_PATH / 'hw_asr' / 'config.json'
+        config_path = ROOT_PATH / "hw_asr" / "config.json"
+        with config_path.open() as f:
+            return cls(json.load(f))
+
+    @classmethod
+    def get_test_configs(cls):
+        config_path = ROOT_PATH / "hw_asr" / "tests" / "config.json"
         with config_path.open() as f:
             return cls(json.load(f))
 

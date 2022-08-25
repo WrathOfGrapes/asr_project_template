@@ -9,9 +9,7 @@ from speechbrain.utils.data_utils import download_file
 from tqdm import tqdm
 
 from hw_asr.base.base_dataset import BaseDataset
-from hw_asr.text_encoder.ctc_char_text_encoder import CTCCharTextEncoder
 from hw_asr.utils import ROOT_PATH
-from hw_asr.utils.parse_config import ConfigParser
 
 logger = logging.getLogger(__name__)
 
@@ -93,14 +91,3 @@ class LibrispeechDataset(BaseDataset):
                         }
                     )
         return index
-
-
-if __name__ == "__main__":
-    text_encoder = CTCCharTextEncoder.get_simple_alphabet()
-    config_parser = ConfigParser.get_default_configs()
-
-    ds = LibrispeechDataset(
-        "dev-clean", text_encoder=text_encoder, config_parser=config_parser
-    )
-    item = ds[0]
-    print(item)

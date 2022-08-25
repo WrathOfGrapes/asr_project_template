@@ -1,6 +1,8 @@
 from datetime import datetime
 
 import numpy as np
+import pandas as pd
+import wandb
 
 
 class WanDBWriter:
@@ -38,33 +40,34 @@ class WanDBWriter:
             self.add_scalar("steps_per_sec", 1 / duration.total_seconds())
             self.timer = datetime.now()
 
-    def scalar_name(self, scalar_name):
+    def _scalar_name(self, scalar_name):
         return f"{scalar_name}_{self.mode}"
 
     def add_scalar(self, scalar_name, scalar):
         self.wandb.log({
-            self.scalar_name(scalar_name): scalar,
+            self._scalar_name(scalar_name): scalar,
         }, step=self.step)
 
     def add_scalars(self, tag, scalars):
         self.wandb.log({
-            **{f"{scalar_name}_{tag}_{self.mode}": scalar for scalar_name, scalar in scalars.items()}
+            **{f"{scalar_name}_{tag}_{self.mode}": scalar for scalar_name, scalar in
+               scalars.items()}
         }, step=self.step)
 
     def add_image(self, scalar_name, image):
         self.wandb.log({
-            self.scalar_name(scalar_name): self.wandb.Image(image)
+            self._scalar_name(scalar_name): self.wandb.Image(image)
         }, step=self.step)
 
     def add_audio(self, scalar_name, audio, sample_rate=None):
         audio = audio.detach().cpu().numpy().T
         self.wandb.log({
-            self.scalar_name(scalar_name): self.wandb.Audio(audio, sample_rate=sample_rate)
+            self._scalar_name(scalar_name): self.wandb.Audio(audio, sample_rate=sample_rate)
         }, step=self.step)
 
     def add_text(self, scalar_name, text):
         self.wandb.log({
-            self.scalar_name(scalar_name): self.wandb.Html(text)
+            self._scalar_name(scalar_name): self.wandb.Html(text)
         }, step=self.step)
 
     def add_histogram(self, scalar_name, hist, bins=None):
@@ -78,8 +81,12 @@ class WanDBWriter:
         )
 
         self.wandb.log({
-            self.scalar_name(scalar_name): hist
+            self._scalar_name(scalar_name): hist
         }, step=self.step)
+
+    def add_table(self, table_name, table: pd.DataFrame):
+        self.wandb.log({self._scalar_name(table_name): wandb.Table(dataframe=table)},
+                       step=self.step)
 
     def add_images(self, scalar_name, images):
         raise NotImplementedError()

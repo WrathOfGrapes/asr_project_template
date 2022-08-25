@@ -1,7 +1,9 @@
 import random
+from pathlib import Path
 from random import shuffle
 
 import PIL
+import pandas as pd
 import torch
 import torch.nn.functional as F
 from torch.nn.utils import clip_grad_norm_
@@ -9,6 +11,7 @@ from torchvision.transforms import ToTensor
 from tqdm import tqdm
 
 from hw_asr.base import BaseTrainer
+from hw_asr.base.base_text_encoder import BaseTextEncoder
 from hw_asr.logger.utils import plot_spectrogram_to_buf
 from hw_asr.metric.utils import calc_cer, calc_wer
 from hw_asr.utils import inf_loop, MetricTracker
@@ -27,9 +30,8 @@ class Trainer(BaseTrainer):
             optimizer,
             config,
             device,
-            data_loader,
+            dataloaders,
             text_encoder,
-            valid_data_loader=None,
             lr_scheduler=None,
             len_epoch=None,
             skip_oom=True,
@@ -38,23 +40,22 @@ class Trainer(BaseTrainer):
         self.skip_oom = skip_oom
         self.text_encoder = text_encoder
         self.config = config
-        self.data_loader = data_loader
+        self.train_dataloader = dataloaders["train"]
         if len_epoch is None:
             # epoch-based training
-            self.len_epoch = len(self.data_loader)
+            self.len_epoch = len(self.train_dataloader)
         else:
             # iteration-based training
-            self.data_loader = inf_loop(data_loader)
+            self.train_dataloader = inf_loop(self.train_dataloader)
             self.len_epoch = len_epoch
-        self.valid_data_loader = valid_data_loader
-        self.do_validation = self.valid_data_loader is not None
+        self.evaluation_dataloaders = {k: v for k, v in dataloaders.items() if k != "train"}
         self.lr_scheduler = lr_scheduler
-        self.log_step = 10
+        self.log_step = 50
 
         self.train_metrics = MetricTracker(
             "loss", "grad norm", *[m.name for m in self.metrics], writer=self.writer
         )
-        self.valid_metrics = MetricTracker(
+        self.evaluation_metrics = MetricTracker(
             "loss", *[m.name for m in self.metrics], writer=self.writer
         )
 
@@ -84,7 +85,7 @@ class Trainer(BaseTrainer):
         self.train_metrics.reset()
         self.writer.add_scalar("epoch", epoch)
         for batch_idx, batch in enumerate(
-                tqdm(self.data_loader, desc="train", total=self.len_epoch)
+                tqdm(self.train_dataloader, desc="train", total=self.len_epoch)
         ):
             try:
                 batch = self.process_batch(
@@ -113,16 +114,20 @@ class Trainer(BaseTrainer):
                 self.writer.add_scalar(
                     "learning rate", self.lr_scheduler.get_last_lr()[0]
                 )
-                self._log_predictions(part="train", **batch)
+                self._log_predictions(**batch)
                 self._log_spectrogram(batch["spectrogram"])
                 self._log_scalars(self.train_metrics)
+                # we don't want to reset train metrics at the start of every epoch
+                # because we are interested in recent train metrics
+                last_train_metrics = self.train_metrics.result()
+                self.train_metrics.reset()
             if batch_idx >= self.len_epoch:
                 break
-        log = self.train_metrics.result()
+        log = last_train_metrics
 
-        if self.do_validation:
-            val_log = self._valid_epoch(epoch)
-            log.update(**{"val_" + k: v for k, v in val_log.items()})
+        for part, dataloader in self.evaluation_dataloaders.items():
+            val_log = self._evaluation_epoch(epoch, part, dataloader)
+            log.update(**{f"{part}_{name}": value for name, value in val_log.items()})
 
         return log
 
@@ -153,7 +158,7 @@ class Trainer(BaseTrainer):
             metrics.update(met.name, met(**batch))
         return batch
 
-    def _valid_epoch(self, epoch):
+    def _evaluation_epoch(self, epoch, part, dataloader):
         """
         Validate after training an epoch
 
@@ -161,33 +166,33 @@ class Trainer(BaseTrainer):
         :return: A log that contains information about validation
         """
         self.model.eval()
-        self.valid_metrics.reset()
+        self.evaluation_metrics.reset()
         with torch.no_grad():
             for batch_idx, batch in tqdm(
-                    enumerate(self.valid_data_loader),
-                    desc="validation",
-                    total=len(self.valid_data_loader),
+                    enumerate(dataloader),
+                    desc=part,
+                    total=len(dataloader),
             ):
                 batch = self.process_batch(
                     batch,
                     is_train=False,
-                    metrics=self.valid_metrics,
+                    metrics=self.evaluation_metrics,
                 )
-            self.writer.set_step(epoch * self.len_epoch, "valid")
-            self._log_scalars(self.valid_metrics)
-            self._log_predictions(part="val", **batch)
+            self.writer.set_step(epoch * self.len_epoch, part)
+            self._log_scalars(self.evaluation_metrics)
+            self._log_predictions(**batch)
             self._log_spectrogram(batch["spectrogram"])
 
         # add histogram of model parameters to the tensorboard
         for name, p in self.model.named_parameters():
             self.writer.add_histogram(name, p, bins="auto")
-        return self.valid_metrics.result()
+        return self.evaluation_metrics.result()
 
     def _progress(self, batch_idx):
         base = "[{}/{} ({:.0f}%)]"
-        if hasattr(self.data_loader, "n_samples"):
-            current = batch_idx * self.data_loader.batch_size
-            total = self.data_loader.n_samples
+        if hasattr(self.train_dataloader, "n_samples"):
+            current = batch_idx * self.train_dataloader.batch_size
+            total = self.train_dataloader.n_samples
         else:
             current = batch_idx
             total = self.len_epoch
@@ -198,40 +203,41 @@ class Trainer(BaseTrainer):
             text,
             log_probs,
             log_probs_length,
-            examples_to_log=5,
+            audio_path,
+            examples_to_log=10,
             *args,
             **kwargs,
     ):
         # TODO: implement logging of beam search results
         if self.writer is None:
             return
-        argmax_inds = log_probs.cpu().argmax(-1)
+        argmax_inds = log_probs.cpu().argmax(-1).numpy()
         argmax_inds = [
             inds[: int(ind_len)]
-            for inds, ind_len in zip(argmax_inds, log_probs_length)
+            for inds, ind_len in zip(argmax_inds, log_probs_length.numpy())
         ]
         argmax_texts_raw = [self.text_encoder.decode(inds) for inds in argmax_inds]
         argmax_texts = [self.text_encoder.ctc_decode(inds) for inds in argmax_inds]
-        tuples = list(zip(argmax_texts, text, argmax_texts_raw))
+        tuples = list(zip(argmax_texts, text, argmax_texts_raw, audio_path))
         shuffle(tuples)
-        to_log_pred = []
-        to_log_pred_raw = []
-        for pred, target, raw_pred in tuples[:examples_to_log]:
+        rows = {}
+        for pred, target, raw_pred, audio_path in tuples[:examples_to_log]:
+            target = BaseTextEncoder.normalize_text(target)
             wer = calc_wer(target, pred) * 100
             cer = calc_cer(target, pred) * 100
-            to_log_pred.append(
-                f"true: '{target}' | pred: '{pred}' "
-                f"| wer: {wer:.2f} | cer: {cer:.2f}"
-            )
-            to_log_pred_raw.append(f"true: '{target}' | pred: '{raw_pred}'\n")
-        self.writer.add_text(f"predictions", "< < < < > > > >".join(to_log_pred))
-        self.writer.add_text(
-            f"predictions_raw", "< < < < > > > >".join(to_log_pred_raw)
-        )
+
+            rows[Path(audio_path).name] = {
+                "target": target,
+                "raw prediction": raw_pred,
+                "predictions": pred,
+                "wer": wer,
+                "cer": cer,
+            }
+        self.writer.add_table("predictions", pd.DataFrame.from_dict(rows, orient="index"))
 
     def _log_spectrogram(self, spectrogram_batch):
-        spectrogram = random.choice(spectrogram_batch)
-        image = PIL.Image.open(plot_spectrogram_to_buf(spectrogram.cpu().log()))
+        spectrogram = random.choice(spectrogram_batch.cpu())
+        image = PIL.Image.open(plot_spectrogram_to_buf(spectrogram))
         self.writer.add_image("spectrogram", ToTensor()(image))
 
     @torch.no_grad()

@@ -50,7 +50,8 @@ def main(config):
         for metric_dict in config["metrics"]
     ]
 
-    # build optimizer, learning rate scheduler. delete every lines containing lr_scheduler for disabling scheduler
+    # build optimizer, learning rate scheduler. delete every line containing lr_scheduler for
+    # disabling scheduler
     trainable_params = filter(lambda p: p.requires_grad, model.parameters())
     optimizer = config.init_obj(config["optimizer"], torch.optim, trainable_params)
     lr_scheduler = config.init_obj(config["lr_scheduler"], torch.optim.lr_scheduler, optimizer)
@@ -63,8 +64,7 @@ def main(config):
         text_encoder=text_encoder,
         config=config,
         device=device,
-        data_loader=dataloaders["train"],
-        valid_data_loader=dataloaders["val"],
+        dataloaders=dataloaders,
         lr_scheduler=lr_scheduler,
         len_epoch=config["trainer"].get("len_epoch", None)
     )

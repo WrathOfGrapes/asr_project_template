@@ -46,8 +46,29 @@ the workflow.
 
 ## Credits
 
-this repository is based on a heavily modified fork
+This repository is based on a heavily modified fork
 of [pytorch-template](https://github.com/victoresque/pytorch-template) repository.
+
+## Docker
+
+You can use this project with docker. Quick start:
+
+```bash 
+docker build -t my_hw_asr_image . 
+docker run \
+   --gpus '"device=0"' \
+   -it --rm \
+   -v /path/to/local/storage/dir:/repos/asr_project_template/data/datasets \
+   -e WANDB_API_KEY=<your_wandb_api_key> \
+	my_hw_asr_image python -m unittest 
+```
+
+Notes:
+
+* `-v /out/of/container/path:/inside/container/path` -- bind mount a path, so you wouldn't have to download datasets at
+  the start of every docker run.
+* `-e WANDB_API_KEY=<your_wandb_api_key>` -- set envvar for wandb (if you want to use it). You can find your API key
+  here: https://wandb.ai/authorize
 
 ## TODO
 
@@ -55,6 +76,5 @@ These barebones can use more tests. We highly encourage students to create pull 
 functionality. Current demands:
 
 * Tests for beam search
-* W&B logger backend
 * README section to describe folders
 * Notebook to show how to work with `ConfigParser` and `config_parser.init_obj(...)`

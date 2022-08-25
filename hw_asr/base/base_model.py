@@ -11,7 +11,7 @@ class BaseModel(nn.Module):
     Base class for all models
     """
 
-    def __init__(self, n_feats, n_class, *args, **kwargs):
+    def __init__(self, n_feats, n_class, **batch):
         super().__init__()
 
     @abstractmethod
@@ -22,7 +22,7 @@ class BaseModel(nn.Module):
 
         :return: Model output
         """
-        raise NotImplementedError
+        raise NotImplementedError()
 
     def __str__(self):
         """
@@ -38,4 +38,4 @@ class BaseModel(nn.Module):
         For example: if your NN transforms spectrogram of time-length `N` into an
             output with time-length `N / 2`, then this function should return `input_lengths // 2`
         """
-        raise NotImplementedError
+        raise NotImplementedError()
