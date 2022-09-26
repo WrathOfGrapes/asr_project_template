@@ -7,10 +7,9 @@ import torch
 from tqdm import tqdm
 
 import hw_asr.model as module_model
-from hw_asr.datasets.utils import get_dataloaders
-from hw_asr.text_encoder.ctc_char_text_encoder import CTCCharTextEncoder
 from hw_asr.trainer import Trainer
 from hw_asr.utils import ROOT_PATH
+from hw_asr.utils.object_loading import get_dataloaders
 from hw_asr.utils.parse_config import ConfigParser
 
 DEFAULT_CHECKPOINT_PATH = ROOT_PATH / "default_test_model" / "checkpoint.pth"
@@ -18,12 +17,12 @@ DEFAULT_CHECKPOINT_PATH = ROOT_PATH / "default_test_model" / "checkpoint.pth"
 
 def main(config, out_file):
     logger = config.get_logger("test")
-    
+
     # define cpu or gpu if possible
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    
+
     # text_encoder
-    text_encoder = CTCCharTextEncoder.get_simple_alphabet()
+    text_encoder = config.get_text_encoder()
 
     # setup data_loader instances
     dataloaders = get_dataloaders(config, text_encoder)
@@ -61,7 +60,7 @@ def main(config, out_file):
             batch["argmax"] = batch["probs"].argmax(-1)
             for i in range(len(batch["text"])):
                 argmax = batch["argmax"][i]
-                argmax = argmax[:int(batch["log_probs_length"][i])]
+                argmax = argmax[: int(batch["log_probs_length"][i])]
                 results.append(
                     {
                         "ground_trurh": batch["text"][i],

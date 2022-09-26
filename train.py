@@ -8,7 +8,7 @@ import torch
 import hw_asr.loss as module_loss
 import hw_asr.metric as module_metric
 import hw_asr.model as module_arch
-from hw_asr.datasets.utils import get_dataloaders
+from hw_asr.utils.object_loading import get_dataloaders
 from hw_asr.text_encoder.ctc_char_text_encoder import CTCCharTextEncoder
 from hw_asr.trainer import Trainer
 from hw_asr.utils import prepare_device
@@ -28,7 +28,7 @@ def main(config):
     logger = config.get_logger("train")
 
     # text_encoder
-    text_encoder = CTCCharTextEncoder.get_simple_alphabet()
+    text_encoder = config.get_text_encoder()
 
     # setup data_loader instances
     dataloaders = get_dataloaders(config, text_encoder)

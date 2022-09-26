@@ -1,8 +1,8 @@
-from typing import List, Tuple, NamedTuple
+from typing import List, NamedTuple
 
 import torch
 
-from hw_asr.text_encoder.char_text_encoder import CharTextEncoder
+from .char_text_encoder import CharTextEncoder
 
 
 class Hypothesis(NamedTuple):
@@ -13,9 +13,9 @@ class Hypothesis(NamedTuple):
 class CTCCharTextEncoder(CharTextEncoder):
     EMPTY_TOK = "^"
 
-    def __init__(self, alphabet: List[str]):
+    def __init__(self, alphabet: List[str] = None):
         super().__init__(alphabet)
-        vocab = [self.EMPTY_TOK] + list(alphabet)
+        vocab = [self.EMPTY_TOK] + list(self.alphabet)
         self.ind2char = dict(enumerate(vocab))
         self.char2ind = {v: k for k, v in self.ind2char.items()}
 

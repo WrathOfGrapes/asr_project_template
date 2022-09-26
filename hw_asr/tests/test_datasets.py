@@ -11,12 +11,11 @@ from hw_asr.utils.parse_config import ConfigParser
 
 class TestDataset(unittest.TestCase):
     def test_librispeech(self):
-        text_encoder = CTCCharTextEncoder.get_simple_alphabet()
         config_parser = ConfigParser.get_test_configs()
         with clear_log_folder_after_use(config_parser):
             ds = LibrispeechDataset(
                 "dev-clean",
-                text_encoder=text_encoder,
+                text_encoder=config_parser.get_text_encoder(),
                 config_parser=config_parser,
                 max_text_length=140,
                 max_audio_length=13,
@@ -25,7 +24,6 @@ class TestDataset(unittest.TestCase):
             self._assert_training_example_is_good(ds[0])
 
     def test_custom_dir_dataset(self):
-        text_encoder = CTCCharTextEncoder.get_simple_alphabet()
         config_parser = ConfigParser.get_test_configs()
         with clear_log_folder_after_use(config_parser):
             audio_dir = str(ROOT_PATH / "test_data" / "audio")
@@ -34,7 +32,7 @@ class TestDataset(unittest.TestCase):
             ds = CustomDirAudioDataset(
                 audio_dir,
                 transc_dir,
-                text_encoder=text_encoder,
+                text_encoder=config_parser.get_text_encoder(),
                 config_parser=config_parser,
                 limit=10,
                 max_audio_length=8,
@@ -43,7 +41,6 @@ class TestDataset(unittest.TestCase):
             self._assert_training_example_is_good(ds[0])
 
     def test_custom_dataset(self):
-        text_encoder = CTCCharTextEncoder.get_simple_alphabet()
         config_parser = ConfigParser.get_test_configs()
         with clear_log_folder_after_use(config_parser):
             audio_path = ROOT_PATH / "test_data" / "audio"
@@ -62,7 +59,7 @@ class TestDataset(unittest.TestCase):
 
             ds = CustomAudioDataset(
                 data=data,
-                text_encoder=text_encoder,
+                text_encoder=config_parser.get_text_encoder(),
                 config_parser=config_parser,
             )
             self._assert_training_example_is_good(ds[0], contains_text=False)

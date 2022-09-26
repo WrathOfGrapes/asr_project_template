@@ -26,7 +26,8 @@ the workflow.
 
 ## Before submitting
 
-0) Make sure your projects run on a new machine after complemeting installation guide
+0) Make sure your projects run on a new machine after complemeting the installation guide or by 
+   running it in docker container.
 1) Search project for `# TODO: your code here` and implement missing functionality
 2) Make sure all tests work without errors
    ```shell
