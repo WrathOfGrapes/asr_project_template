@@ -19,10 +19,11 @@ the workflow.
 4) Implement functions in `hw_asr\metric\utils.py`
 5) Implement missing function to run `train.py` with a baseline model
 6) Write your own model and try to overfit it on a single batch
-7) ~~Pain and suffering~~ Implement your own models and train them. You've mastered this template when you can tune your
+7) Implement ctc beam search and add metrics to calculate WER and CER over hypothesis obtained from beam search.
+8) ~~Pain and suffering~~ Implement your own models and train them. You've mastered this template when you can tune your
    experimental setup just by tuning `configs.json` file and running `train.py`
-8) Don't forget to write a report about your work
-9) Get hired by Google the next day
+9) Don't forget to write a report about your work
+10) Get hired by Google the next day
 
 ## Before submitting
 
