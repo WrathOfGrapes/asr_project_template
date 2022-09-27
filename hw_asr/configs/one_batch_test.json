@@ -7,7 +7,8 @@
       "type": "MelSpectrogram",
       "args": {
       }
-    }
+    },
+    "log_spec": true
   },
   "augmentations": {
     "wave": [],

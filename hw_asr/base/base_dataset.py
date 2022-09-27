@@ -25,13 +25,12 @@ class BaseDataset(Dataset):
             limit=None,
             max_audio_length=None,
             max_text_length=None,
-            log_spec=True,
     ):
         self.text_encoder = text_encoder
         self.config_parser = config_parser
         self.wave_augs = wave_augs
         self.spec_augs = spec_augs
-        self.log_spec = log_spec
+        self.log_spec = config_parser["preprocessing"]["log_spec"]
 
         self._assert_index_is_valid(index)
         index = self._filter_records_from_dataset(index, max_audio_length, max_text_length, limit)
