@@ -23,7 +23,7 @@
   },
   "data": {
     "train": {
-      "batch_size": 20,
+      "batch_size": 50,
       "num_workers": 5,
       "datasets": [
         {
@@ -32,27 +32,66 @@
             "part": "train-clean-100",
             "max_audio_length": 20.0,
             "max_text_length": 200
+          },
+          "module": "hw_asr.models"
+        },
+        {
+          "type": "LibrispeechDataset",
+          "args": {
+            "part": "train-clean-360",
+            "max_audio_length": 20.0,
+            "max_text_length": 200
+          }
+        },
+        {
+          "type": "LibrispeechDataset",
+          "args": {
+            "part": "train-other-500",
+            "max_audio_length": 20.0,
+            "max_text_length": 200
           }
         }
       ]
     },
     "val": {
-      "batch_size": 20,
+      "batch_size": 30,
       "num_workers": 5,
       "datasets": [
         {
           "type": "LibrispeechDataset",
           "args": {
-            "part": "dev-clean",
-            "max_audio_length": 20.0,
-            "max_text_length": 200
+            "part": "dev-clean"
+          }
+        }
+      ]
+    },
+    "test-other": {
+      "batch_size": 30,
+      "num_workers": 5,
+      "datasets": [
+        {
+          "type": "LibrispeechDataset",
+          "args": {
+            "part": "test-other"
+          }
+        }
+      ]
+    },
+    "test-clean": {
+      "batch_size": 30,
+      "num_workers": 5,
+      "datasets": [
+        {
+          "type": "LibrispeechDataset",
+          "args": {
+            "part": "test-clean"
           }
         }
       ]
     }
   },
   "optimizer": {
-    "type": "SGD",
+    "type": "Adam",
     "args": {
       "lr": 3e-4
     }
@@ -81,7 +120,7 @@
       "steps_per_epoch": 100,
       "epochs": 50,
       "anneal_strategy": "cos",
-      "max_lr": 4e-3,
+      "max_lr": 3e-4,
       "pct_start": 0.2
     }
   },
