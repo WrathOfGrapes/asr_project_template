@@ -81,7 +81,7 @@ class LJspeechDataset(BaseDataset):
                     w_id = line.split('|')[0]
                     w_text = " ".join(line.split('|')[1:]).strip()
                     wav_path = wav_dir / f"{w_id}.wav"
-                    if not wav_path.exists(): # elem in another part
+                    if not wav_path.exists(): # elem is in another part
                         continue
                     t_info = torchaudio.info(str(wav_path))
                     length = t_info.num_frames / t_info.sample_rate
